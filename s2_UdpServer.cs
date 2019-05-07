@@ -106,8 +106,8 @@ namespace _Decal
             {
                 while(true)
                 {
-                    DataReader dataReader = args.GetDataReader()
-                    recvBytes = new byte[dataReader.UnconsumedBufferLength]
+                    DataReader dataReader = args.GetDataReader();
+                    recvBytes = new byte[dataReader.UnconsumedBufferLength];
                     dataReader.ReadBytes(recvBytes);
                     isImgOk = true;
                 }
