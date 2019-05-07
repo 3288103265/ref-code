@@ -120,9 +120,7 @@ namespace _Decal
                 {
                     throw;
                 }
-
             }  
-   
         }
         #endif
     }
