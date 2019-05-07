@@ -20,6 +20,7 @@ namespace _Decal
         public Sprite sprite;
         private Texture2D tex;
         private bool isImgOk;
+        private byte[] recvBytes;
 
         public float maxAngle = 90.0f;
         public float pushDistance = 0.009f;
@@ -41,7 +42,6 @@ namespace _Decal
 
         private void Start()
         {
-            recvBytes = new byte[1024*65];
             InitDecal();
             #if WINDOWS_UWP
             InitServer();
@@ -92,6 +92,7 @@ namespace _Decal
             catch (Exception ex)
             {
                 SocketErrorStatus webErrorStatus = SocketError.GetStatus(ex.GetBaseException().HResult);
+                 this.serverListBox.Items.Add(webErrorStatus.ToString() != "Unknown" ? webErrorStatus.ToString() : ex.Message);
             }
         }
 
@@ -99,22 +100,30 @@ namespace _Decal
         //事件处理器的定义
         private async void ServerDatagramSocket_MessageReceived(DatagramSocket sender, DatagramSocketMessageReceivedEventArgs args)
         {
-            while(true)
+           
+            try
             {
-                using (DataReader dataReader = args.GetDataReader())
+                while(true)
                 {
-                    //接受文件这里是关键，但是不能确定这样是否能行
-                    //用变量接收发送来的数据
-                    //string。trim（）删去前导和尾随空白符，但是并不会删去字符串中间的空白符。
-                    //读长度
-                    uint byteLength = dataReader.ReadUInt32();
-                    //读数据
-                    var recvBytes = new byte[byteLength];
+                    DataReader dataReader = args.GetDataReader()
+                    recvBytes = new byte[dataReader.UnconsumedBufferLength]
                     dataReader.ReadBytes(recvBytes);
-                } 
-                //发送速度如果大于更新的帧率，则会丢帧，最终帧率将决定于两个里面较小的哪个
-                isImgOk=false;       
-            }     
+                    isImgOk = true;
+                }
+                
+            }
+            catch (Exception exception)
+            {
+                // If this is an unknown status it means that the error is fatal and retry will likely fail. 
+                if (SocketError.GetStatus(exception.HResult) == SocketErrorStatus.Unknown)
+                {
+                    throw;
+                }
+
+                // dump data
+                Debug.Log("Read Stream failed: " + exception.Message);
+            }
+           
             // TODO:加关停socket的命令和逻辑。    
         }
         #endif
