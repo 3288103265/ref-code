@@ -42,6 +42,7 @@ namespace _Decal
 
         private void Start()
         {
+            isImgOk = false;
             InitDecal();
             #if WINDOWS_UWP
             InitServer();
