@@ -19,8 +19,8 @@ namespace _Decal
         public Material material;
         public Sprite sprite;
         private Texture2D tex;
-        private byte[] recvBytes;
         private bool isImgOk;
+        private byte[] recvBytes;
 
         public float maxAngle = 90.0f;
         public float pushDistance = 0.009f;
@@ -42,7 +42,6 @@ namespace _Decal
 
         private void Start()
         {
-            recvBytes = new byte[1024*65];
             InitDecal();
             #if WINDOWS_UWP
             InitServer();
@@ -74,45 +73,56 @@ namespace _Decal
 
         #if WINDOWS_UWP
 
-        private DatagramSocket serverDatagramSocket;
-
-        private async void InitServer()
+        private async void StartServer()
         {
             try
-            {   //实例化DatagramSocket
-                serverDatagramSocket = new DatagramSocket();
+            {
+                //instantitate a listener
+                var streamSocketListener = new StreamSocketListener();
 
-                //挂接事件处理器
+                //挂接事件处理器。
+                //每次连接后，就会调用事件处理器，接受请求，回复请求。不知道是不是每次发送都需要来回收发，最好的状态是建立一次连接，然后随便发送最好。
                 // The ConnectionReceived event is raised when connections are received.
-                serverDatagramSocket.MessageReceived += ServerDatagramSocket_MessageReceived;
+                streamSocketListener.ConnectionReceived += this.StreamSocketListener_ConnectionReceived;
 
-                //绑定本机端口，这样可以接受来自任意远端的信息；也可指定单一远端通过connect操作。
+                //开始监听。
                 // Start listening for incoming TCP connections on the specified port. You can specify any port that's not currently in use.
-                await serverDatagramSocket.BindServiceNameAsync("8080");
+                await streamSocketListener.BindServiceNameAsync("8080");
             }
             catch (Exception ex)
             {
                 SocketErrorStatus webErrorStatus = SocketError.GetStatus(ex.GetBaseException().HResult);
+                this.serverListBox.Items.Add(webErrorStatus.ToString() != "Unknown" ? webErrorStatus.ToString() : ex.Message);
             }
         }
-
-
-        //事件处理器的定义
-        private async void ServerDatagramSocket_MessageReceived(DatagramSocket sender, DatagramSocketMessageReceivedEventArgs args)
+        //事件处理器。
+        private async void StreamSocketListener_ConnectionReceived(StreamSocketListener sender, StreamSocketListenerConnectionReceivedEventArgs args)
         {
-            while(true)
+            DataReader reader = new DataReader(args.Socket.InputStream);
+            try
             {
-                using (DataReader dataReader = args.GetDataReader())
+                while(true)
                 {
-                    //接受文件这里是关键，但是不能确定这样是否能行
-                    //用变量接收发送来的数据
-                    //string。trim（）删去前导和尾随空白符，但是并不会删去字符串中间的空白符。
-                    dataReader.ReadBytes(recvBytes);
-                } 
-                //发送速度如果大于更新的帧率，则会丢帧，最终帧率将决定于两个里面较小的哪个
-                isImgOk=false;       
-            }     
-            // TODO:加关停socket的命令和逻辑。    
+                    //读长度
+                    await reader.LoadAsync(sizeof(uint));
+                    uint len = reader.ReadUInt32();
+                    // 读内容
+                    await reader.LoadAsync(len);
+                    recvBytes = new byte[reader.UnconsumedBufferLength];
+                    reader.ReadBytes(recvBytes);
+                    isImgOk = true;
+                }
+            }
+            catch (Exception exception)
+            {
+                // If this is an unknown status it means that the error is fatal and retry will likely fail. 
+                if (SocketError.GetStatus(exception.HResult) == SocketErrorStatus.Unknown)
+                {
+                    throw;
+                }
+
+            }
+   
         }
         #endif
     }
